@@ -1,0 +1,52 @@
+version: '3'
+services:
+    php:
+        platform: linux/x86_64
+        build:
+            context: .
+            dockerfile: docker/php/Dockerfile
+        container_name: php 
+        network_mode: bridge
+        volumes:
+          - ./config/php.ini:/usr/local/etc/php/conf.d/40-custom.ini
+          - ./src:/var/www/lenta.events
+          - "/var/run/docker.sock:/var/run/docker.sock"   
+        links:
+          - mysql  
+        environment:
+          - TZ=Europe/Moscow          
+          - MYSQL_PORT_3306_TCP_ADDR=mysql
+          - MYSQL_PORT_3306_TCP_PORT=3306
+    nginx:
+        platform: linux/x86_64
+        image: nginx:latest        
+        container_name: nginx
+        network_mode: bridge
+        ports:
+            - "80:80"
+            - "443:443"
+        volumes:
+            - ./config/nginx.conf:/etc/nginx/conf.d/lenta.events.conf
+            - ./config/lenta.events.crt:/etc/nginx/ssl/lenta.events.crt
+            - ./config/lenta.events.key:/etc/nginx/ssl/lenta.events.key
+            - ./src:/var/www/lenta.events
+            - ./logs/nginx:/var/log/nginx
+        links:
+            - php           
+    mysql:
+        platform: linux/x86_64
+        image: mysql:5.7
+        command: --character-set-server=utf8 --collation-server=utf8_general_ci
+        container_name: mysql
+        network_mode: bridge
+        ports:
+            - "3306:3306"
+        volumes:
+            - ./config/my.cnf:/etc/mysql/conf.d/my.cnf
+            - ./logs/mysql:/var/log/mysql
+            - ./mysql:/var/lib/mysql
+            - ./data:/tmp/data
+        environment:
+            MYSQL_ROOT_PASSWORD: password
+            MYSQL_DATABASE: lenta.events
+            MYSQL_ROOT_HOST: '%'
