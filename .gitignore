@@ -1,0 +1,6 @@
+.idea
+src/composer.lock
+src/vendor/
+logs/
+mysql/
+selenoid/

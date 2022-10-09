@@ -1,5 +1,31 @@
 version: '3'
 services:
+    selenoid:
+        platform: linux/x86_64
+        image: aerokube/selenoid:latest-release
+        container_name: "selenoid"
+        network_mode: bridge
+        volumes:
+            - ./config/browsers.json:/etc/selenoid/browsers.json
+            - /var/run/docker.sock:/var/run/docker.sock
+            - ./selenoid:/opt/selenoid/video
+            - ./logs/selenoid:/opt/selenoid/logs
+        environment:
+            - TZ=Europe/Moscow
+            - OVERRIDE_VIDEO_OUTPUT_DIR=$PWD/selenoid
+        command: ["-conf", "/etc/selenoid/browsers.json", "-video-output-dir", "/opt/selenoid/video", "-log-output-dir", "/opt/selenoid/logs"]
+        expose:
+            - "4444"
+    selenoid-ui:
+        platform: linux/x86_64
+        image: aerokube/selenoid-ui
+        container_name: "selenoid-ui"
+        network_mode: bridge
+        links:
+            - selenoid
+        ports:
+            - "8888:8080"
+        command: ["--selenoid-uri","http://selenoid:4444"]
     php:
         platform: linux/x86_64
         build:
@@ -12,9 +38,12 @@ services:
           - ./src:/var/www/lenta.events
           - "/var/run/docker.sock:/var/run/docker.sock"   
         links:
-          - mysql  
+          - mysql
+          - selenoid
         environment:
-          - TZ=Europe/Moscow          
+          - TZ=Europe/Moscow
+          - SELENOID_PORT_4444_TCP_ADDR=selenoid
+          - SELENOID_PORT_4444_TCP_PORT=4444
           - MYSQL_PORT_3306_TCP_ADDR=mysql
           - MYSQL_PORT_3306_TCP_PORT=3306
     nginx:
