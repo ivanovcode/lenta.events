@@ -13,8 +13,13 @@ function docker-remove {
     docker rm -vf $(docker ps -a -q)
     docker rmi -f $(docker images -a -q)
 }
-function docker-entrypoint-initdb {
-    docker exec mysql mysql -uroot -e "create schema db;"
+function docker-mysql-init {
+    docker exec mysql mysql -uroot -e "CREATE DATABASE db CHARACTER SET utf8 COLLATE utf8_general_ci;"
+}
+function docker-mysql-config {
+    docker exec -it mysql sh -c "mysql -uroot db < ./tmp/data/mysql-config.sql"
+}
+function docker-mysql-dump {
     docker exec -it mysql sh -c "mysql -uroot db < ./tmp/data/mysql-dump.sql"
 }
 function migrate {
@@ -59,6 +64,20 @@ argument="$1"
       "--bash" )
             docker-bash
       ;;
+      "--db" )
+            docker-mysql-init
+            docker-mysql-config
+            docker-mysql-dump
+      ;;
+      "--db-init" )
+            docker-mysql-init
+      ;;
+      "--db-config" )
+            docker-mysql-config
+      ;;
+      "--db-dump" )
+            docker-mysql-dump
+      ;;
       "--install" )
             docker-down
             files-reset
@@ -67,7 +86,9 @@ argument="$1"
             docker-build
             composer
             sleep 5
-            docker-entrypoint-initdb
+            docker-mysql-init
+            docker-mysql-config
+            docker-mysql-dump
             #migrate
             clear
             docker-list
