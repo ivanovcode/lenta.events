@@ -132,10 +132,7 @@ body,
 table {
     width: 100%;
 }
-table span {
-    cursor: pointer;
-    border-bottom: dotted 1px #000;
-}
+
 td[data-key="Streams"] {
     color:#fff;
 }

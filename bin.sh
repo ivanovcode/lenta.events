@@ -20,7 +20,7 @@ function docker-mysql-config {
     docker exec -it mysql sh -c "mysql -uroot db < ./tmp/data/mysql-config.sql"
 }
 function docker-mysql-dump {
-    docker exec -it mysql sh -c "mysql -uroot db < ./tmp/data/mysql-dump.sql"
+    docker exec -it mysql sh -c "mysql -uroot db < ./tmp/data/dump.sql"
 }
 function migrate {
     docker exec -it php script /dev/null -c "./bin/migrate migrate:init dev"
@@ -40,7 +40,10 @@ function docker-run {
 }
 function docker-up {
     docker-compose down
-    docker-compose up -d
+    docker-compose up --build -d
+}
+function docker-bash {
+    docker exec -it php bash
 }
 function docker-list {
     docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Ports}}"
@@ -81,13 +84,13 @@ argument="$1"
       "--install" )
             docker-down
             files-reset
-            docker-remove
+            #docker-remove
             browsers-install
             docker-build
             composer
             sleep 5
             docker-mysql-init
-            docker-mysql-config
+            #docker-mysql-config
             docker-mysql-dump
             #migrate
             clear
@@ -99,10 +102,10 @@ argument="$1"
             clear
             docker-list
       ;;
-      "--start" )
-            docker-start
+      "--up" )
+            docker-up
       ;;
-      "--stop" )
+      "--down" )
             docker-down
       ;;
       "--reset" )
@@ -118,5 +121,8 @@ argument="$1"
       ;;
       "--clear" )
             files-reset 
-      ;;          
+      ;;
+      "--php" )
+            docker-bash
+      ;;
   esac

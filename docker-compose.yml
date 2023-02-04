@@ -33,10 +33,14 @@ services:
             dockerfile: docker/php/Dockerfile
         container_name: php 
         network_mode: bridge
+        ports:
+            - "9001:9001"
         volumes:
+          - ./config/supervisord.conf:/etc/supervisor/supervisord.conf
           - ./config/php.ini:/usr/local/etc/php/conf.d/40-custom.ini
           - ./src:/var/www/lenta.events
-          - "/var/run/docker.sock:/var/run/docker.sock"   
+          - "/var/run/docker.sock:/var/run/docker.sock"
+          - ./logs/supervisor:/var/log/supervisor
         links:
           - mysql
           - selenoid
@@ -65,17 +69,22 @@ services:
     mysql:
         platform: linux/x86_64
         image: mysql:5.7
-        command: --character-set-server=utf8 --collation-server=utf8_general_ci
+        command: [
+            '--default_authentication_plugin=mysql_native_password',
+            '--character-set-server=utf8mb4',
+            '--collation-server=utf8mb4_unicode_ci'
+        ]
         container_name: mysql
         network_mode: bridge
         ports:
             - "3306:3306"
         volumes:
-            - ./config/my.cnf:/etc/mysql/conf.d/my.cnf
+            #- ./config/my.cnf:/etc/mysql/conf.d/my.cnf
             - ./logs/mysql:/var/log/mysql
             - ./mysql:/var/lib/mysql
-            - ./data:/tmp/data
+            - ./data:/docker-entrypoint-initdb.d
         environment:
-            MYSQL_ROOT_PASSWORD: password
-            MYSQL_DATABASE: lenta.events
-            MYSQL_ROOT_HOST: '%'
+            MYSQL_DATABASE: "${DB_NAME}"
+            MYSQL_USER: "${DB_USER}"
+            MYSQL_PASSWORD: "${DB_PASSWORD}"
+            MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"

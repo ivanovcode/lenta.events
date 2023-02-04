@@ -7,7 +7,7 @@
     <section class="menu-section">
         <h3 class="menu-section-title">Справочники</h3>
         <ul class="menu-section-list">
-            <li><a href="posts">Мероприятия</a></li>
+            <li class="active"><a href="events">Мероприятия</a></li>
         </ul>
     </section>
 </nav>

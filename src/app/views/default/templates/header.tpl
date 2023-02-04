@@ -18,7 +18,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/3.0.3/normalize.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/skeleton/2.0.4/skeleton.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.9.0/css/fontawesome.min.css" rel="stylesheet" >
-
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.7.2/animate.min.css" rel="stylesheet" >
     <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.3/css/all.css" integrity="sha384-UHRtZLI+pbxtHCWp1t77Bi1L4ZtiqrqD80Kn4Z8NTSRyMA2Fd33n5dQ8lWUE00s/" crossorigin="anonymous">
 
     <link rel="apple-touch-icon" sizes="180x180" href="app/views/default/assets/img/favicon/apple-touch-icon.png">
@@ -31,7 +31,7 @@
     <link rel="stylesheet" href="app/components/css/responsive-tables.css">
 
     <link rel="stylesheet" href="app/views/default/assets/css/common.css">
-    <link rel="stylesheet" href="app/views/default/assets/css/list.css">
+
 </head>
 <body>
     <div class="preloader-wrapper">

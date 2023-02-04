@@ -29,7 +29,7 @@ $( document ).ready(function() {
 
     var path = window.location.protocol + "//" + window.location.host + "/" + window.location.pathname + window.location.search;
     var page = path.match(/([^\/]*)\/*$/)[1];
-    console.log(page);
+
     $("a[href='" + page + "']").parent().addClass('active');
 
     var slideout = new Slideout({

@@ -1,6 +1,7 @@
 {
     "require": {
-        "facebook/webdriver": "^1.7",
-        "vlucas/phpdotenv": "^3.3"
+        "vlucas/phpdotenv": "^3.3",
+        "reilag/php-anticaptcha": "^2.0.0",
+        "facebook/webdriver": "^1.7"
     }
 }
