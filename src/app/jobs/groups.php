@@ -10,9 +10,17 @@ function getElementBySelector(
     $secondWait = 10
 ) {
     $selectors = !is_array($selector) ? [$selector] : $selector;
+
+    $goto = 0;
+    begin:
+    if ($goto == 3) {
+        return false;
+    }
+    $goto++;
+
     foreach ($selectors as $selector) {
         try {
-            logg("init      | " . $selector);
+            //logg("init      | " . $selector);
             if ($wait) {
                 $driver
                     ->wait(5, $secondWait * 1000)
@@ -40,32 +48,48 @@ function getElementBySelector(
                         : Facebook\WebDriver\WebDriverBy::cssSelector($selector)
                 );
             if ($element) {
-                logg("success   | " . $selector);
+                //logg("success   | " . $selector);
                 return $element;
             }
-            logg("rejected  | " . $selector);
+            //logg("rejected  | " . $selector);
             continue;
         } catch (Facebook\WebDriver\Exception\TimeoutException $e) {
-            logg("timeout   | " . $selector);
+            //logg("timeout   | " . $selector);
             continue;
         } catch (Exception $e) {
-            logg("exception | " . $selector);
+            //echo $e->getMessage();
+            //logg("exception | " . $selector);
             continue;
         }
     }
-    return false;
+
+    sleep(5);
+    goto begin;
 }
 
 function initWebDriver()
 {
-    $driver = Facebook\WebDriver\Remote\RemoteWebDriver::create(
-        "http://selenoid:4444/wd/hub",
+
+    $caps = Facebook\WebDriver\Remote\DesiredCapabilities::chrome();
+    $caps->setBrowserName("chrome");
+    $caps->setVersion("100.0");
+    $caps->setCapability("enableVNC", true);
+
+    $options = new Facebook\WebDriver\Chrome\ChromeOptions();
+    $options->addArguments(
         [
-            "browserName" => "chrome",
-            "browserVersion" => "100.0",
-            "selenoid:options" => ["enableVNC" => true],
+            "--disable-gpu",
+            "--disable-dev-shm-usage"
         ]
     );
+
+    $caps->setCapability(Facebook\WebDriver\Chrome\ChromeOptions::CAPABILITY, $options);
+
+    $driver = Facebook\WebDriver\Remote\RemoteWebDriver::create(
+        "http://selenoid:4444/wd/hub",
+        $caps
+    );
+
     $driver
         ->manage()
         ->window()
@@ -149,7 +173,7 @@ function captcha($driver, $config)
     sleep(1);
     $captcha = getElementBySelector($driver, $config->xpath["captcha"]);
     if ($captcha) {
-        $filename = removeFileTmp("captcha.png");
+        $filename = removeFileTmp(randHash() . ".png");
         $captchaImage = getElementBySelector(
             $driver,
             $config->xpath["captchaImage"]
@@ -261,7 +285,7 @@ function insertGroup($db, $group)
     echo $group->group_title . " | " . $group->group_id . "\n";
     $sql =
         '
-    INSERT IGNORE INTO groups (
+    INSERT INTO groups (
         `id`, `group_id`, `group_title`, `source_id`, `status_id`, `group_updated`, `group_created`
     ) VALUES (
         NULL,
@@ -271,9 +295,23 @@ function insertGroup($db, $group)
         '  . $group->status_id     . ',
         "' . $group->group_updated . '",
         "' . $group->group_created . '"
+    ) ON DUPLICATE KEY UPDATE 
+        `group_title` = VALUES (`group_title`),
+        `group_updated` = VALUES (`group_updated`);
+    ';
+    $db->query($sql);
+    $id_group = $db->lastInsertId();
+
+    $sql = '
+    INSERT INTO groups_keywords (
+        `group_id`, `keyword_id`
+    ) VALUES (
+        ' . $id_group    . ',
+        ' . $group->keyword_id  . '
     );
     ';
     $db->query($sql);
+
 }
 
 function initConfig()
@@ -285,69 +323,125 @@ function initConfig()
 }
 
 function normalizeGroupId($string) {
-    return str_replace('\\', '', $string);
+    $string = strtok($string, "?");
+    $string = str_replace('\\', '', $string);
+    $string = str_replace('/', '', $string);
+    return $string;
 }
 
-function parseGroups($db, $driver, $config, $query, $limit)
+function getKeywords($db)
 {
+    $rows = $db->query("
+        SELECT
+        *
+        FROM
+        keywords w
+        WHERE
+        w.parsed IS NULL
+    ");
+    return $rows->fetchall(PDO::FETCH_ASSOC);
+}
+
+function updateKeyword($db, $keyword)
+{
+    $sql = '
+    UPDATE keywords SET 
+        parsed = "' . $keyword->parsed . '"
+    WHERE 
+        id = ' . $keyword->id . '
+    ;';
+    $db->query($sql);
+}
+
+function parseGroups($db, $driver, $config, $limit)
+{
+    begin:
     pageOpen($driver, "https://vk.com/groups");
-    $groupsInput = write($driver, $config->xpath["groupsInput"], $query);
-    $groupsSearch = click($driver, $config->xpath["groupsSearch"]);
-    $groupsCount = getElementBySelector($driver, $config->xpath["groupsCount"]);
-    $total = intval(preg_replace("/\D/", "", $groupsCount->getText()));
-
-    $count = 0;
-    while (true) {
-        $elements = getElementBySelector(
-            $driver,
-            str_replace(
-                ["[COUNT]"],
-                [strval($count + 1)],
-                $config->xpath["groupsItems"]
-            ),
-            true,
-            true
-        );
-
-        if ($elements) {
-            $count = $count + count($elements);
-
-            if ($count == $total || $count == $limit) {
-                return true;
-            }
-
-            foreach ($elements as $element) {
-                $group = (object) [];
-                $groupTitle = getElementBySelector(
-                    $element,
-                    $config->xpath["groupTitle"],
-                    false
-                );
-                if ($groupTitle) {
-                    $group->group_id = normalizeGroupId($groupTitle->getAttribute("href"));
-                    $group->group_title = $groupTitle->getText();
-                    $group->source_id = '1';
-                    $group->status_id = '4';
-                    $group->group_updated = date("Y-m-d H:i:s");
-                    $group->group_created = date("Y-m-d H:i:s");
-                    insertGroup($db, $group);
-                }
-            }
-
-            $driver->executeScript(
-                "window.scrollTo(0, document.body.scrollHeight);"
-            );
-            $driver->wait(10, 500)->until(function ($driver) use ($count) {
-                return $driver->executeScript(
-                    'return document.getElementById("groups_list_search_cont").getElementsByClassName("groups_row").length > ' .
-                    strval($count)
-                );
-            });
-            continue;
-        }
-        break;
+    window($driver);
+    $keywords = getKeywords($db);
+    if (count($keywords) == 0) {
+        echo "wait keyword ..." . "\n";
+        sleep(45);
+        goto begin;
     }
-    return false;
+
+    if ($keywords) {
+        foreach ($keywords as $keyword) {
+            $keyword = (object)$keyword;
+
+            write($driver, $config->xpath["groupsInput"], $keyword->title);
+            click($driver, $config->xpath["groupsSearch"]);
+            $groupsCount = getElementBySelector($driver, $config->xpath["groupsCount"]);
+            $total = intval(preg_replace("/\D/", "", $groupsCount->getText()));
+
+            if ($total == 0) {
+                continue;
+            }
+
+            updateKeyword($db, (object)array(
+                "id" => $keyword->id,
+                "parsed" => "0001-01-01 01:00:00"
+            ));
+
+            $count = 0;
+            while (true) {
+                $elements = getElementBySelector(
+                    $driver,
+                    str_replace(
+                        ["[COUNT]"],
+                        [strval($count + 1)],
+                        $config->xpath["groupsItems"]
+                    ),
+                    true,
+                    true
+                );
+
+                if ($elements) {
+                    $count = $count + count($elements);
+
+                    if ($count == $total || $count == $limit) {
+                        updateKeyword($db, (object)array(
+                            "id" => $keyword->id,
+                            "parsed" => date("Y-m-d H:i:s")
+                        ));
+                        goto begin;
+                    }
+
+                    foreach ($elements as $element) {
+                        $group = (object)[];
+                        $groupTitle = getElementBySelector(
+                            $element,
+                            $config->xpath["groupTitle"],
+                            false
+                        );
+                        if ($groupTitle) {
+                            $group->group_id = normalizeGroupId($groupTitle->getAttribute("href"));
+                            $group->group_title = $groupTitle->getText();
+                            $group->source_id = '1';
+                            $group->status_id = '1';
+                            $group->group_updated = date("Y-m-d H:i:s");
+                            $group->group_created = date("Y-m-d H:i:s");
+                            $group->keyword_id = $keyword->id;
+                            insertGroup($db, $group);
+                        }
+                    }
+
+                    $driver->executeScript(
+                        "window.scrollTo(0, document.body.scrollHeight);"
+                    );
+                    $driver->wait(10, 500)->until(function ($driver) use ($count) {
+                        return $driver->executeScript(
+                            'return document.getElementById("groups_list_search_cont").getElementsByClassName("groups_row").length > ' .
+                            strval($count)
+                        );
+                    });
+                    continue;
+                }
+                break;
+            }
+            goto begin;
+        }
+    }
 }
 
 try {
@@ -357,7 +451,7 @@ try {
     $log         = logg("", true);
     $config      = initConfig();
     $signIn      = signIn($driver, $config);
-    $queryGroups = parseGroups($db, $driver, $config, "сочи походы", 1000);
+    $queryGroups = parseGroups($db, $driver, $config, 1000);
     $driver      = closeWebDriver($driver);
     $db          = closeDb($db);
 } catch (Exception $e) {

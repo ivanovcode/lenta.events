@@ -3,6 +3,10 @@ body,
     background-color: #fff;
 }
 
+a {
+    color: #000;
+}
+
 .menu {
     background-color: #f7f7f7;
     background-image: linear-gradient(145deg, #f7f7f7, #f7f7f7);
@@ -14,12 +18,22 @@ body,
 .menu>a {
     color:#fff;
 }
+.not_founded {
+    display: block;
+    height: 160px;
+    margin-bottom: 0px;
+    text-align: center;
+    background: url(../img/notfounded.png) no-repeat center bottom;
+    color: #616161;
+    margin-top: 25px;
+    margin-bottom: 25px;
+}
 
 .menu-header {
-
+    background: url('../img/logo.png') no-repeat center;
     padding: 20px;
-    background-size: 32px;
-    background-color: #33C3F0;
+    background-color: #fff;
+    text-indent: -99999px;
 }
 
 .menu-header a {
@@ -91,11 +105,13 @@ body,
 }
 
 .sub-panel {
-    padding: 7px 0px;
+    padding: 0px 0px;
+    /*padding: 7px 0px;*/
     margin-bottom: 0px;
 }
 
 .header-panel h6 {
+    text-transform: capitalize;
     font-size: 20px;
     margin-bottom: 0px;
 }
@@ -223,7 +239,7 @@ body,
     top: 8px;
     left: 12px;
     outline:none;
-    background: url('../img/menu.png') no-repeat center;
+    background: url('../img/nav.png') no-repeat -9px center;
     width: 50px;
     height: 50px;
     margin-bottom: 0px;
@@ -318,13 +334,13 @@ table tbody td:nth-last-of-type(-n+4) {
 }
 
 table tbody td:first-child,
-table tbody td:nth-last-of-type(-n+4) {
+table tbody td:nth-last-of-type(-n+5) {
     background-color: #f9f9f9;
     vertical-align: top;
 }
 
-table thead th:nth-last-of-type(-n+4),
-table tbody td:nth-last-of-type(-n+4) {
+table thead th:nth-last-of-type(-n+5),
+table tbody td:nth-last-of-type(-n+5) {
     display: none;
 }
 
@@ -427,8 +443,10 @@ input#StaffName, input#CassaTitle {
         transform:rotate(359deg)
     }
 }
-
-
+.discription {
+    height: 50px;
+    overflow: hidden;
+}
 
 .example1 {
     margin:0;

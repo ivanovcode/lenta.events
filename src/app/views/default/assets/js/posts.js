@@ -32,8 +32,8 @@ var statusSetButtons = {
     'rejected'  : ['new'],
     'new'       : ['rejected', 'pending'],
     'pending'   : ['new', 'approved'],
-    'approved'  : ['pending'],
-    'published' : []
+    'approved'  : ['pending', 'published'],
+    'published' : ['pending' ]
 };
 
 var tagsInterval;
@@ -137,14 +137,18 @@ function send(url, method, values, callback, callbackSuccess, e)
         data: $.extend({}, values),
         success: function (data) {
             //console.log(data);
-            callback(e.target, e.parent);
+            if (e) {
+                callback(e.target, e.parent);
+            }
             if(data.success === true) {
                 callbackSuccess(data);
             }
         },
         error: function(response) {
             //console.log(response);
-            callback(e.target, e.parent);
+            if (e) {
+                callback(e.target, e.parent);
+            }
         }
     });
 }
@@ -164,7 +168,6 @@ function renderTemplate(name, data) {
 function renderStatusButtons(id= 'new', count = 0, $active= 'new')
 {
     let subPanel = $(selectors.sub_panel);
-
     subPanel.empty();
     for (const [key, value] of Object.entries(statuses)) {
         statuses[key] = (id == key ? parseInt(value) + count : ( $active == key ? parseInt(value) - count : value ));
@@ -469,8 +472,26 @@ function initSetStatusButtons(statusId)
     });
 }
 
+function initGetCount(statusId, table)
+{
+    let values = {};
+    values.status = statusId;
+    values.table = table;
+    countInterval = setInterval(function ()  {
+        if (statuses[statusId] == 0) {
+            send('api/getcount', 'GET', values, function () {
+            }, function (data) {
+                if (data.data.count > 0) {
+                    location.reload();
+                }
+            });
+        }
+    }, 5000);
+}
+
 $(document).ready(function ()
 {
+    initGetCount(statusId, 'posts');
     renderStatusButtons();
     initStatusButtons(statusId);
     initSetStatusButtons(statusId);

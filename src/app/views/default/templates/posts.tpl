@@ -1,10 +1,10 @@
 <link href="app/views/default/assets/css/{*page*}.css" rel="stylesheet" />
 <div class="row js-form-container form-container">
-    <div class="seven columns">
+    <div class="six columns">
         <div class="js-form-panel">
         </div>
     </div>
-    <div class="five columns images">
+    <div class="six columns images">
         <div class="js-preloader preloader-wrap">
             <div class="preloader">
                 <img src="app/views/default/assets/img/load.gif" alt="NILA">
@@ -18,7 +18,7 @@
 </div>
 
 <div class="js-sub-panel sub-panel"></div>
-{?* post *}
+{?* post^COUNT *}
 <div class="table-responsive">
     <div id="no-more-tables">
         <table class="table">
@@ -26,6 +26,7 @@
             <tr>
                 <th scope="col"><i class="fa fa-image" aria-hidden="true"></i></th>
                 <th scope="col">Событие</th>
+                <th scope="col"></th>
                 <th scope="col"></th>
                 <th scope="col"></th>
                 <th scope="col"></th>
@@ -42,8 +43,10 @@
                         <button class="js-btn-set-group-status button alt status icon rejected active" href="#"><i class="fa fa-times-circle" aria-hidden="true"></i></button>
                         <span class="post-group">{*post:group_title*}</span>
                     </div>
-                    <span class="post-date">{*post:post_date*}</span><br>
-                    {?* post:status_title = "approved" *}{*post:event_discription*}{?!}{*post:post_discription*}{?}<br>
+                    <span class="post-date">{*post:post_date*}</span>
+                    <div class="discription">
+                    {?* post:status_title = "approved" *}{*post:event_discription*}{?!}{*post:post_discription*}{?}
+                    </div>
                     <a href="https://vk.com/{*post:group_id*}?w=wall-{*post:post_id*}" target="_blank">подробнее</a>
                 </td>
                 <td>
@@ -58,6 +61,9 @@
                 <td>
                     <button class="js-btn-set-post-status button alt status list approved" data-id="approved" href="#"><i class="fa fa-check-circle" aria-hidden="true"></i> approve</button>
                 </td>
+                <td>
+                    <button class="js-btn-set-post-status button alt status list published" data-id="published" href="#"><i class="fa fa-arrow-alt-circle-up" aria-hidden="true"></i> publish</button>
+                </td>
             </tr>
             {%}
             </tbody>
@@ -65,11 +71,12 @@
     </div>
 </div>
 {?!}
-<p>нет записей</p>
+<p class="not_founded">{*page*} not founded</p>
 {?}
 
 <script>
     var statuses = JSON.parse('{*statuses*}');
+    console.log('{*statuses*}');
 </script>
 <script type="html/tpl" id="statusBtn">
     <button class="js-btn-status button alt status default {status_title} {status_active}" data-id="{status_title}" href="#"><i class="fa {status_icon}" aria-hidden="true"></i> {status_title} (<span>{status_count}</span>)</button>

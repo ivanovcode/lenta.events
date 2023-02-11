@@ -1,4 +1,7 @@
 #!/bin/bash
+function db-export-dump {
+    /opt/homebrew/opt/mysql-client/bin/mysqldump -h 127.0.0.1 -uuser -p events > ./data/dump.sql --no-tablespaces --column-statistics=0
+}
 function ssl-get {
     #https://codex.so/wildcard-ssl
     ./acme.sh --register-account -m support@lenta.events
@@ -71,6 +74,9 @@ argument="$1"
             docker-mysql-init
             docker-mysql-config
             docker-mysql-dump
+      ;;
+      "--db-export" )
+            db-export-dump
       ;;
       "--db-init" )
             docker-mysql-init

@@ -48,9 +48,17 @@ function getElementBySelector(
     $secondWait = 10
 ) {
     $selectors = !is_array($selector) ? [$selector] : $selector;
+
+    $goto = 0;
+    begin:
+    if ($goto == 3) {
+        return false;
+    }
+    $goto++;
+
     foreach ($selectors as $selector) {
         try {
-            logg("init      | " . $selector);
+            //logg("init      | " . $selector);
             if ($wait) {
                 $driver
                     ->wait(5, $secondWait * 1000)
@@ -78,32 +86,63 @@ function getElementBySelector(
                         : Facebook\WebDriver\WebDriverBy::cssSelector($selector)
                 );
             if ($element) {
-                logg("success   | " . $selector);
+                //logg("success   | " . $selector);
                 return $element;
             }
-            logg("rejected  | " . $selector);
+            //logg("rejected  | " . $selector);
             continue;
         } catch (Facebook\WebDriver\Exception\TimeoutException $e) {
-            logg("timeout   | " . $selector);
+            //logg("timeout   | " . $selector);
             continue;
         } catch (Exception $e) {
-            logg("exception | " . $selector);
+            //echo $e->getMessage();
+            //logg("exception | " . $selector);
             continue;
         }
+    }
+    if ($wait) {
+        sleep(5);
+        goto begin;
     }
     return false;
 }
 
 function initWebDriver()
 {
+
+    $caps = Facebook\WebDriver\Remote\DesiredCapabilities::chrome();
+    $caps->setBrowserName("chrome");
+    $caps->setVersion("100.0");
+    $caps->setCapability("enableVNC", true);
+    /*$caps->setCapability("selenoid:options",
+        [
+            "enableVNC" => true
+        ]
+    );*/
+
+    $options = new Facebook\WebDriver\Chrome\ChromeOptions();
+    $options->addArguments(
+        [
+            "--disable-gpu",
+            "--disable-dev-shm-usage"
+        ]
+    );
+
+    $caps->setCapability(Facebook\WebDriver\Chrome\ChromeOptions::CAPABILITY, $options);
+
     $driver = Facebook\WebDriver\Remote\RemoteWebDriver::create(
+        "http://selenoid:4444/wd/hub",
+        $caps
+    );
+
+    /*$driver = Facebook\WebDriver\Remote\RemoteWebDriver::create(
         "http://selenoid:4444/wd/hub",
         [
             "browserName" => "chrome",
             "browserVersion" => "100.0",
             "selenoid:options" => ["enableVNC" => true],
         ]
-    );
+    );*/
     $driver
         ->manage()
         ->window()
@@ -187,7 +226,7 @@ function captcha($driver, $config)
     sleep(1);
     $captcha = getElementBySelector($driver, $config->xpath["captcha"]);
     if ($captcha) {
-        $filename = removeFileTmp("captcha.png");
+        $filename = removeFileTmp(randHash() . ".png");
         $captchaImage = getElementBySelector(
             $driver,
             $config->xpath["captchaImage"]
@@ -216,6 +255,13 @@ function window($driver)
     $driver->executeScript(
         "document.getElementById('box_layer_wrap').click();"
     );
+}
+
+
+function clickByElement($element)
+{
+    $element->click();
+    sleep(1);
 }
 
 function click($driver, $xpath)
@@ -269,7 +315,7 @@ function initConfig()
 function signIn($driver, $config)
 {
     pageOpen($driver, "https://vk.com/");
-    $login = write($driver, $config->xpath["login"], $config->vk_alt["login"]);
+    $login = write($driver, $config->xpath["login"], $config->vk["login"]);
     $enter = click($driver, $config->xpath["loginEnter"]);
     $loginToPassword = getElementBySelector(
         $driver,
@@ -282,7 +328,7 @@ function signIn($driver, $config)
     $password = write(
         $driver,
         $config->xpath["password"],
-        $config->vk_alt["password"]
+        $config->vk["password"]
     );
     $continue = click($driver, $config->xpath["continue"]);
     $recommends = getElementBySelector($driver, $config->xpath["recommends"]);
@@ -299,5 +345,6 @@ function signIn($driver, $config)
             return true;
         }
     }
-    return false;
+    sleep(1);
+    return true;
 }

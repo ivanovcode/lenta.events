@@ -9,11 +9,12 @@ function insertPost($db, $post)
     $sql =
         '
     INSERT IGNORE INTO posts (
-        `id`, `post_id`, `post_date`, `post_discription`, `post_image`, `group_id`, `status_id`, `post_updated`, `post_created`
+        `id`, `post_id`, `post_date`, `post_date_source`, `post_discription`, `post_image`, `group_id`, `status_id`, `post_updated`, `post_created`
     ) VALUES (
         NULL,
         "' . $post->post_id          . '",
         "' . $post->post_date        . '",
+        "' . $post->post_date_source . '",
         "' . $post->post_discription . '",
         "' . $post->post_image       . '",
         '  . $post->group_id         . ',
@@ -22,11 +23,21 @@ function insertPost($db, $post)
         "' . $post->post_created     . '"
     );
     ';
-    logg($sql, false, "sql.txt");
     $db->query($sql);
 }
 
-
+function updateGroup($db, $group)
+{
+    $sql = '
+    UPDATE groups SET 
+        status_id = 6,
+        group_closed = 1,
+        group_updated = "' . date("Y-m-d H:i:s") . '"
+    WHERE 
+        id = ' . $group->id . '
+    ;';
+    $db->query($sql);
+}
 
 function strReplaceForArray($list, $string)
 {
@@ -130,7 +141,7 @@ function getTimeDate($string)
             $timeType = 'minutes';
         }
 
-        if (in_array($word, ["часов", "hours"])) {
+        if (in_array($word, ["час", "часа", "часов", "hours", "hour"])) {
             $timeType = 'hour';
         }
 
@@ -197,7 +208,7 @@ function getDayDate($string)
             $timeType = 'minutes';
         }
 
-        if (in_array($word, ["часов", "hours"])) {
+        if (in_array($word, ["час", "часа", "часов", "hours", "hour"])) {
             $timeType = 'hour';
         }
 
@@ -227,22 +238,45 @@ function getGroups($db)
 {
     $groups = $db->query("
         SELECT
-        *
+        g.id,
+        g.group_id,
+        MAX(p.post_created) as last_post_created
         FROM
         groups g
-        WHERE 
-            g.status_id = 4
+        LEFT JOIN posts p ON p.group_id = g.id
+        WHERE
+        g.status_id = 4
+        GROUP BY g.id
+        HAVING last_post_created IS NULL
+        ORDER BY g.id ASC
     ");
     return $groups->fetchall(PDO::FETCH_ASSOC);
 }
 
 function parsePosts($db, $driver, $config, $limit=3)
 {
+    begin:
+    pageOpen($driver, "https://vk.com");
+    window($driver);
     $groups = getGroups($db);
+    if (count($groups) == 0) {
+        echo "wait group ..." . "\n";
+        sleep(45);
+        goto begin;
+    }
+
     if ($groups) {
         foreach ($groups as $group) {
-            pageOpen($driver, 'https://vk.com/' . $group['group_id']);
+            $group = (object)$group;
+            pageOpen($driver, 'https://vk.com/' . $group->group_id);
             $posts = getElementBySelector($driver, $config->xpath["posts"]);
+
+            $groupClosed = getElementBySelector($driver, $config->xpath["groupClosed"], false);
+            if ($groupClosed) {
+                updateGroup($db, $group);
+                continue;
+            }
+
             if ($posts) {
                 $count = 0;
                 while (true) {
@@ -260,6 +294,10 @@ function parsePosts($db, $driver, $config, $limit=3)
                     if ($elements) {
                         foreach ($elements as $element) {
                             $count++;
+                            $postTextMore = getElementBySelector($element, $config->xpath["postTextMore"], false);
+                            if ($postTextMore) {
+                                clickByElement($postTextMore);
+                            }
 
                             $postText = getElementBySelector($element, $config->xpath["postText"], false);
 
@@ -289,19 +327,17 @@ function parsePosts($db, $driver, $config, $limit=3)
                                 }
 
                                 $post->post_date = '';
+                                $post->post_date_source = '';
                                 $postDate = getElementBySelector($element, $config->xpath["postDate"], false);
                                 if ($postDate) {
-                                    $post->post_date = $postDate->getText();
-                                    logg('post_date | ' . $post->post_date);
-                                    logg('post_date | ' . $post->post_date, false, "date.txt");
-                                    if (!empty($post->post_date)) {
-                                        $post->post_date = normalizePostDate($post->post_date);
+                                    $post->post_date_source = $postDate->getText();
+                                    if (!empty($post->post_date_source)) {
+                                        $post->post_date = normalizePostDate($post->post_date_source);
                                         $post->post_date = getYearDate($post->post_date) . "-" . getMonthDate($post->post_date) . "-" . getDayDate($post->post_date) . " " . getTimeDate($post->post_date);
                                     }
-                                    logg('post_date | ' . $post->post_date);
                                 }
 
-                                $post->group_id = $group['id'];
+                                $post->group_id = $group->id;
                                 $post->post_id = $element->getAttribute('id');
                                 $post->post_discription = normalizePostDiscription($postText ? $postText->getText() : "-");
                                 $post->status_id = "1";
@@ -318,7 +354,7 @@ function parsePosts($db, $driver, $config, $limit=3)
                         if ($count == $limit) {
                             break;
                         }
-                        logg('scroll    |');
+                        //logg('scroll    |');
                         $driver->executeScript(
                             "window.scrollTo(0, document.body.scrollHeight);"
                         );
@@ -335,22 +371,50 @@ function parsePosts($db, $driver, $config, $limit=3)
             }
         }
     }
-    return false;
+    goto begin;
 
 }
 
 try {
-    //$post_date = normalizePostDate("29 минут назад");
-    //$post_date = normalizePostDate("вчера в 20:13");
-    //$post_date = normalizePostDate("13 янв в 21:34");
-    //$post_date = normalizePostDate("11 июл 2021");
-    //$post_date = normalizePostDate("сегодня в 9:19");
-    //$post_date = normalizePostDate("42 minutes ago");
-    //$post_date = normalizePostDate("ten hours ago");
 
-    //$post_date = getYearDate($post_date) . "-" . getMonthDate($post_date) . "-" . getDayDate($post_date) . " " . getTimeDate($post_date);
-    //die($post_date);
+/*$post_date = normalizePostDate("29 минут назад");
+$post_date = getYearDate($post_date) . "-" . getMonthDate($post_date) . "-" . getDayDate($post_date) . " " . getTimeDate($post_date);
+echo $post_date . "\n";
 
+$post_date = normalizePostDate("три часа назад");
+$post_date = getYearDate($post_date) . "-" . getMonthDate($post_date) . "-" . getDayDate($post_date) . " " . getTimeDate($post_date);
+echo $post_date . "\n";
+
+$post_date = normalizePostDate("вчера в 20:13");
+$post_date = getYearDate($post_date) . "-" . getMonthDate($post_date) . "-" . getDayDate($post_date) . " " . getTimeDate($post_date);
+echo $post_date . "\n";
+
+$post_date = normalizePostDate("13 янв в 21:34");
+$post_date = getYearDate($post_date) . "-" . getMonthDate($post_date) . "-" . getDayDate($post_date) . " " . getTimeDate($post_date);
+echo $post_date . "\n";
+
+$post_date = normalizePostDate("11 июл 2021");
+$post_date = getYearDate($post_date) . "-" . getMonthDate($post_date) . "-" . getDayDate($post_date) . " " . getTimeDate($post_date);
+echo $post_date . "\n";
+
+$post_date = normalizePostDate("сегодня в 9:19");
+$post_date = getYearDate($post_date) . "-" . getMonthDate($post_date) . "-" . getDayDate($post_date) . " " . getTimeDate($post_date);
+echo $post_date . "\n";
+
+$post_date = normalizePostDate("42 minutes ago");
+$post_date = getYearDate($post_date) . "-" . getMonthDate($post_date) . "-" . getDayDate($post_date) . " " . getTimeDate($post_date);
+echo $post_date . "\n";
+
+$post_date = normalizePostDate("ten hours ago");
+$post_date = getYearDate($post_date) . "-" . getMonthDate($post_date) . "-" . getDayDate($post_date) . " " . getTimeDate($post_date);
+echo $post_date . "\n";
+
+$post_date = normalizePostDate("ten hours ago");
+$post_date = getYearDate($post_date) . "-" . getMonthDate($post_date) . "-" . getDayDate($post_date) . " " . getTimeDate($post_date);
+echo $post_date . "\n";
+
+die();
+*/
     $driver      = initWebDriver();
     $dotenv      = initDotenv();
     $db          = initDb();
@@ -400,8 +464,14 @@ try {
             'posts'                => '//*[@id="page_wall_posts"]',
             'postsItems'           => 'div.post:nth-child(n+[COUNT])',
             'postText'             => 'div.wall_post_text',
+            'postTextMore'         => 'button.PostTextMore',
             'postImage'            => 'img.MediaGrid__imageOld',
-            'postDate'             => 'span.rel_date'
+            'postDate'             => array(
+                                      'time.PostHeaderSubtitle__item',
+                                      'span.rel_date'
+
+            ),
+            'groupClosed'          => 'div.redesigned-group-closed-block'
         )
     );
 

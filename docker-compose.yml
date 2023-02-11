@@ -31,6 +31,8 @@ services:
         build:
             context: .
             dockerfile: docker/php/Dockerfile
+            shm_size: '2gb'
+        shm_size: '2gb'
         container_name: php 
         network_mode: bridge
         ports:

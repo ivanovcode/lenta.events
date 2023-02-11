@@ -112,7 +112,7 @@ $router->get('/my/events', function() {
     ");
 
     query("SET sql_mode = '';");
-    $data['statuses'] = convertStatuses(
+    $data['statuses'] = convertPostStatuses(
         query("
             SELECT
                 s.status_title,
@@ -121,6 +121,7 @@ $router->get('/my/events', function() {
                 statuses s
             LEFT JOIN posts p ON p.status_id = s.id
             LEFT JOIN groups g ON g.id = p.group_id
+            WHERE s.is_post IS NOT NULL
             GROUP BY s.id
             ORDER BY s.is_post ASC
         ")
@@ -135,10 +136,99 @@ $router->get('/my/events', function() {
         ) :
             $data['statuses']
     );
-
+    $data['post'] = array_slice($data['post'], 0, 50);
     $data['container'] = $data['page'].'.tpl';
     echo websun_parse_template_path($data, TPL . '/container.tpl');
 });
+
+
+$router->get('/my/groups', function() {
+    $auth = auth();
+
+    $status_id = isset($_GET['status']) ? $_GET['status'] : 'new';
+
+    $data = [];
+    $data['user'] = $_SESSION['user'];
+    $data['page'] = 'groups';
+
+    query("SET sql_mode = '';");
+    $data['group'] = query("
+        SELECT
+            g.id,
+            g.group_title,
+            g.group_id,
+            s.status_title,
+            GROUP_CONCAT(k.title) as keywords
+            FROM 
+            groups g
+        LEFT JOIN
+            statuses s
+            ON s.id = g.status_id
+        LEFT JOIN
+            groups_keywords gk
+            ON gk.group_id = g.id
+        LEFT JOIN
+            keywords k
+            ON k.id = gk.keyword_id          
+        WHERE 
+            s.status_title = '" . $status_id .  "'
+        GROUP BY g.id
+        ORDER BY 
+        g.id ASC
+    ");
+
+    query("SET sql_mode = '';");
+    $data['statuses'] = convertGroupStatuses(
+        query("
+            SELECT
+                s.status_title,
+                SUM(IF(g.id IS NOT NULL, 1, 0)) as group_count
+            FROM
+                statuses s
+            LEFT JOIN groups g ON g.status_id = s.id
+            WHERE s.is_group IS NOT NULL
+            GROUP BY s.id
+            ORDER BY s.is_group ASC
+        ")
+    );
+
+    $data['statuses'] = json(
+        $data['group'] ? array_merge(
+            $data['statuses'],
+            array_count_values(
+                array_column($data['group'], 'status_title')
+            )
+        ) :
+            $data['statuses']
+    );
+
+    $data['group'] = array_slice($data['group'], 0, 50);
+    $data['container'] = $data['page'].'.tpl';
+    echo websun_parse_template_path($data, TPL . '/container.tpl');
+});
+
+$router->get('/api/getcount', function() {
+    if (!isset($_GET['table']) || !isset($_GET['status'])) {
+        response(false);
+    }
+
+    $result = query("
+        SELECT
+        COUNT(*) as count
+        FROM
+        " . $_GET['table'] . "
+        LEFT JOIN statuses s ON s.id = " . $_GET['table'] . ".status_id
+        WHERE
+        s.status_title = '" . $_GET['status'] . "'
+    ");
+
+    response(true, array(
+        'table'     => $_GET['table'],
+        'status'    => $_GET['status'],
+        'count'     => $result[0]['count']
+    ));
+});
+
 $router->post('/api/images', function() use ($config) {
     if (!isset($_POST['q'])) {
         response(false);
@@ -207,7 +297,7 @@ $router->post('/api/post', function() {
         response(false);
     }
 
-    setPostStatus(
+    setApiPostStatus(
         $_POST['post']['id'],
         $_POST['post']['status_id']
     );
@@ -215,6 +305,22 @@ $router->post('/api/post', function() {
         'post' => $_POST['post']
     ));
 });
+
+$router->post('/api/apigroup', function() {
+
+    if (!isset($_POST['post'])) {
+        response(false);
+    }
+
+    setApiGroupStatus(
+        $_POST['post']['id'],
+        $_POST['post']['status_id']
+    );
+    response(true, array(
+        'post' => $_POST['post']
+    ));
+});
+
 $router->post('/api/group', function() {
     if (!isset($_POST['group_id'])) {
         response(false);

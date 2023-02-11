@@ -20,7 +20,7 @@ function response($success, $data = [])
     ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 }
 
-function convertStatuses($items)
+function convertPostStatuses($items)
 {
     $_items = [];
     foreach($items as $item) {
@@ -29,7 +29,16 @@ function convertStatuses($items)
     return $_items;
 }
 
-function setPostStatus($id, $status_id)
+function convertGroupStatuses($items)
+{
+    $_items = [];
+    foreach($items as $item) {
+        $_items[$item['status_title']] = $item['group_count'];
+    }
+    return $_items;
+}
+
+function setApiPostStatus($id, $status_id)
 {
     $GLOBALS['db']->query('
        UPDATE 
@@ -39,6 +48,19 @@ function setPostStatus($id, $status_id)
            p.status_id = s.id
        WHERE 
            p.id = ' . $id . ';
+    ');
+}
+
+function setApiGroupStatus($id, $status_id)
+{
+    $GLOBALS['db']->query('
+       UPDATE 
+           groups g 
+       LEFT JOIN statuses s ON s.status_title = "' . $status_id . '"
+       SET 
+           g.status_id = s.id
+       WHERE 
+           g.id = ' . $id . ';
     ');
 }
 
